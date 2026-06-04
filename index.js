@@ -22,9 +22,10 @@ const client = new MongoClient(uri, {
   }
 });
 
- const JWKS = createRemoteJWKSet(
-      new URL('http://localhost:3000/api/auth/jwks')
-    )
+const authBaseUrl = process.env.BETTER_AUTH_URL || 'http://localhost:3000';
+const JWKS = createRemoteJWKSet(
+    new URL('/api/auth/jwks', authBaseUrl)
+)
 
 
 const verifyToken = async(req, res, next) => {
@@ -52,9 +53,7 @@ const verifyToken = async(req, res, next) => {
 
 
 async function run() {
-  try {
-   
-    // await client.connect();
+    await client.connect();
 
     const db = client.db('wanderlast');
     const destinationsCollection = db.collection('destinations');
@@ -100,10 +99,20 @@ async function run() {
 
     // get destination by id
     app.get('/destination/:id',verifyToken, async (req, res) => {
-        const id = req.params.id;
-        const query = { _id: new ObjectId(id) };
-        const destination = await destinationsCollection.findOne(query);
-        res.json(destination);
+        try {
+            const id = req.params.id;
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({ message: 'Invalid destination id' });
+            }
+            const query = { _id: new ObjectId(id) };
+            const destination = await destinationsCollection.findOne(query);
+            if (!destination) {
+                return res.status(404).json({ message: 'Destination not found' });
+            }
+            res.json(destination);
+        } catch (error) {
+            res.status(500).json({ message: 'Error fetching destination', error: error.message });
+        }
     });
 
 
@@ -153,10 +162,6 @@ async function run() {
 
     // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
-  }
 }
 run().catch(console.dir);
 
@@ -171,3 +176,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`)
 })
+
