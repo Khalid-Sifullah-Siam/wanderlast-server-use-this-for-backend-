@@ -53,7 +53,9 @@ const verifyToken = async(req, res, next) => {
 
 
 async function run() {
-    await client.connect();
+    client.connect()
+        .then(() => console.log("Pinged your deployment. You successfully connected to MongoDB!"))
+        .catch(console.dir);
 
     const db = client.db('wanderlast');
     const destinationsCollection = db.collection('destinations');
@@ -83,17 +85,29 @@ async function run() {
 
     // get all destinations
     app.get('/destinations', async (req, res) => {
-        const cursor = destinationsCollection.find();
-        const destinations = await cursor.toArray();
-        res.json(destinations);
+        try {
+            const destinations = await destinationsCollection.find().toArray();
+            res.json(destinations);
+        } catch (error) {
+            res.status(500).json({
+                message: 'Error fetching destinations',
+                error: error.message
+            });
+        }
     });
 
 
     // get featured destinations
     app.get('/featured-destinations', async (req, res) => {
-        const cursor = destinationsCollection.find();
-        const destinations = await cursor.limit(4).toArray();
-        res.json(destinations);
+        try {
+            const destinations = await destinationsCollection.find().limit(4).toArray();
+            res.json(destinations);
+        } catch (error) {
+            res.status(500).json({
+                message: 'Error fetching featured destinations',
+                error: error.message
+            });
+        }
     });
 
 
@@ -158,10 +172,6 @@ async function run() {
     })
     
 
-
-
-    // await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
 }
 run().catch(console.dir);
 
@@ -173,7 +183,11 @@ app.get('/', (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`)
-})
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`)
+    })
+}
+
+module.exports = app;
 
